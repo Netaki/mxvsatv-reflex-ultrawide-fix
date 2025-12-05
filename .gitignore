@@ -42,5 +42,6 @@
 
 # Folders
 .idea
+.vs
 build
 cmake-build-debug
