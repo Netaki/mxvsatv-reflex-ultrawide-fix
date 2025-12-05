@@ -1,0 +1,55 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Release
+    runs-on: windows-latest
+
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Extract version number (strip leading v)
+        id: version
+        run: echo "VERSION=${RELEASE_TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DPATCHER_VERSION="${{ steps.version.outputs.VERSION }}"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Find output file
+        id: find_file
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem -Recurse "build/Release" -Filter "MXvsATV-Reflex-Patcher-*.exe" | Select-Object -Expand FullName
+          if (-not $file) {
+            Write-Error "Executable not found!"
+          }
+          echo "FILEPATH=$file" >> $env:GITHUB_OUTPUT
+
+      - name: Upload asset to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: ${{ steps.find_file.outputs.FILEPATH }}
+          asset_name: MXvsATV-Reflex-Patcher-${{ env.RELEASE_TAG }}.exe
+          tag: ${{ env.RELEASE_TAG }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
